@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>رافع Firebase</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0f0f0f;
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .card {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 16px;
+    padding: 32px 24px;
+    width: 100%;
+    max-width: 420px;
+  }
+  h1 {
+    font-size: 22px;
+    margin-bottom: 6px;
+    color: #ff6b35;
+  }
+  p.sub {
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 28px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    color: #aaa;
+    margin-bottom: 6px;
+  }
+  .drop-zone {
+    border: 2px dashed #333;
+    border-radius: 12px;
+    padding: 32px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    margin-bottom: 20px;
+    position: relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: #ff6b35;
+    background: #1f1510;
+  }
+  .drop-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+  .drop-icon { font-size: 36px; margin-bottom: 8px; }
+  .drop-text { font-size: 14px; color: #777; }
+  .file-name {
+    font-size: 13px;
+    color: #ff6b35;
+    margin-top: 6px;
+    font-weight: 600;
+  }
+  .btn {
+    width: 100%;
+    padding: 14px;
+    background: #ff6b35;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .btn:hover { background: #e85a24; }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { background: #444; cursor: not-allowed; }
+  .status {
+    margin-top: 20px;
+    padding: 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    display: none;
+  }
+  .status.info { background: #1a2a3a; border: 1px solid #2a4a6a; color: #7ab3d4; display: block; }
+  .status.success { background: #0d2a1a; border: 1px solid #1a5a2a; color: #4ade80; display: block; }
+  .status.error { background: #2a0d0d; border: 1px solid #5a1a1a; color: #f87171; display: block; }
+  .result-link {
+    display: block;
+    margin-top: 10px;
+    color: #ff6b35;
+    font-weight: 700;
+    word-break: break-all;
+    font-size: 14px;
+    text-decoration: none;
+  }
+  .result-link:hover { text-decoration: underline; }
+  .progress-bar {
+    height: 4px;
+    background: #2a2a2a;
+    border-radius: 4px;
+    margin-top: 10px;
+    overflow: hidden;
+    display: none;
+  }
+  .progress-fill {
+    height: 100%;
+    background: #ff6b35;
+    border-radius: 4px;
+    transition: width 0.3s;
+    width: 0%;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🔥 رافع Firebase</h1>
+  <p class="sub">ارفع ملف HTML على Firebase Hosting بضغطة واحدة</p>
+
+  <label>اختار الملف HTML</label>
+  <div class="drop-zone" id="dropZone">
+    <input type="file" id="fileInput" accept=".html">
+    <div class="drop-icon">📄</div>
+    <div class="drop-text">اضغط أو اسحب الملف هنا</div>
+    <div class="file-name" id="fileName"></div>
+  </div>
+
+  <button class="btn" id="uploadBtn" disabled onclick="startUpload()">ارفع الملف</button>
+
+  <div class="progress-bar" id="progressBar">
+    <div class="progress-fill" id="progressFill"></div>
+  </div>
+
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+// ===== بيانات Firebase =====
+const PROJECT_ID = "zaki-ai-a4b86";
+const SERVICE_ACCOUNT = {
+  "type": "service_account",
+  "project_id": "zaki-ai-a4b86",
+  "private_key_id": "4312dc014c6de617608d80bd4e6a256b73d99b02",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDKpu/mYUSNVrN2\nfHB3WO7NUK7HiDjdBPViHsgOIzPwfaXI6Xglw8LQcOxHt09Yh+dJpY+BrP/fhKL7\naKwJavIK+wn0NTKzLeAynM38W1yo6IbuTQWTr9dx24RLa4yCmw11YglckYKOAQl5\neKvx9Fe22QLSsE18QJRr4tyKoUKFAYOS1lPmALFLzGm/6XZr+Pv5IacNoWaCao2i\n//PUjWg2QpJfNJsdjDafr0G8ZpsvWZZ8euOdwjsN8L0Ivxyr3TGAtKsePhNQNxym\nFhjvltcT0oDrflJirKq/x+WJmoMLWJ65S+3LG4XYU4RS44Xt26yFlAdtapjDli/H\n7eSRNytzAgMBAAECggEACwYLtL+DyCB4QLDCOWvICbki2M3LMhKr+ntsLICzuZhM\nJWK123ALr+UEpV4OXeV+ql3sMYSkopcHep+WBCkiI4DGaNdf+6k6MeafueOKZdHI\nTTw5WnBNSu9DAgtGqHAgykrb8YIk1O6vgkETMWU2REcHxUg73s9wg3Hix1PAV5XF\nrFa3yJ7+/s55wl9klqYTK509kUF4RDu1pG5JCnhajlWzWI7p7M7lvU4azeSSMPKV\naf4ea+V1XPINVHIkXMa2Ln44k0FFETeRQT2AFk7HnctVAd9zVpH3nuKe9WiVAkjU\nG1tCalzCeLYwQnVcHW6CzpQI5DwUOr0eL4PBHIOXkQKBgQDx2fK+w1Qik8PNJJnv\n5PnzJNRuFIUaP85wvUbJxa6DCjsT/z552sUJxjj+blvnSxBQgD/0vBqgilpm9kUN\n5wAA8UUvz+wTcComygmslGOxx8rWckB6tZupKoXyh8VMIoozStGIbg1mb5EMjWmJ\nH9lgOhWKTFx0ev9ZX+cgU/jniQKBgQDWge1EnOjC3dfiaoqONTrK87l/dELACb0V\nD2C7tG863OCGLvgIuNhevgrBsHcg7sla6YWDYcViwtJG9NuEQTt6b/RAiCNM5D3m\ngZYhQe63h/6PdWceHpMuwvuWXwChDZWXJm1X0ZbJopcrP4H9LcHwlovPwyF/NQg6\n0nO6YdDAGwKBgBr1KTqcOR+Viuit4L69riKtA0S14tQ3MoKchmxtLXOLy2QCOmuI\nuBfL0YSCtpnEYzAl63sTEIC+iy8Y2j+fdP+l5QlcSrsr8HbcZFGpRKeHVpOqroc/\nAPfNNpr/CT3gR7lJ6KslYTb+zpMwnAfd1fQE5WvB8ThGkXnb175hvcfJAoGAZ6ev\nNQmxvIChEsszGxcDyxDNYZaXrt7F3QhqUSoW2dXkNVM7DlPsUpP49LHGT0a0TFct\n6lfznw7Pt/QYo6c2C6tP12Mx07UzaFDUcEvBBDUWQNKVustBikY0dux/jFPZJoou\nKlKgT91euUpeES7sWcsV0pbTd/nzeSE7RSSBUGMCgYB06XvmCmSOOJ7ZR6ctHOpP\nTvGx7gCYCzsP0F+oB55XoJmykgRVwESmO1IfGiwhgIQm3VFTqUQGrUVR9fXQEzN4\nnDFWyLBbM2Cpc3FkH/0+UxmZOcA/JfSB3vqRsdNQqjpK1H7FI0g7ETTd3+CbJBsi\n5TSv3T27zt1n7xnAQj5xrg==\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-fbsvc@zaki-ai-a4b86.iam.gserviceaccount.com",
+  "client_id": "103632061637396318962",
+  "token_uri": "https://oauth2.googleapis.com/token"
+};
+
+let selectedFile = null;
+
+// File input
+document.getElementById('fileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (file) selectFile(file);
+});
+
+// Drag and drop
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) selectFile(file);
+});
+
+function selectFile(file) {
+  selectedFile = file;
+  document.getElementById('fileName').textContent = '✅ ' + file.name;
+  document.getElementById('uploadBtn').disabled = false;
+}
+
+function setStatus(type, msg) {
+  const el = document.getElementById('status');
+  el.className = 'status ' + type;
+  el.innerHTML = msg;
+}
+
+function setProgress(pct) {
+  const bar = document.getElementById('progressBar');
+  bar.style.display = 'block';
+  document.getElementById('progressFill').style.width = pct + '%';
+}
+
+// JWT helpers
+function base64url(str) {
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+function base64urlFromUint8(bytes) {
+  let str = '';
+  for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+  return base64url(str);
+}
+
+async function makeJWT() {
+  const now = Math.floor(Date.now() / 1000);
+  const header = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const payload = base64url(JSON.stringify({
+    iss: SERVICE_ACCOUNT.client_email,
+    sub: SERVICE_ACCOUNT.client_email,
+    aud: SERVICE_ACCOUNT.token_uri,
+    iat: now,
+    exp: now + 3600,
+    scope: 'https://www.googleapis.com/auth/firebase https://www.googleapis.com/auth/cloud-platform'
+  }));
+
+  const signingInput = header + '.' + payload;
+
+  // Import private key
+  const pemContents = SERVICE_ACCOUNT.private_key
+    .replace('-----BEGIN PRIVATE KEY-----', '')
+    .replace('-----END PRIVATE KEY-----', '')
+    .replace(/\n/g, '');
+  const binaryDer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8', binaryDer.buffer,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false, ['sign']
+  );
+
+  const signature = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5', cryptoKey,
+    new TextEncoder().encode(signingInput)
+  );
+
+  return signingInput + '.' + base64urlFromUint8(new Uint8Array(signature));
+}
+
+async function getAccessToken() {
+  const jwt = await makeJWT();
+  const resp = await fetch(SERVICE_ACCOUNT.token_uri, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`
+  });
+  const data = await resp.json();
+  if (!data.access_token) throw new Error('فشل في الحصول على Token: ' + JSON.stringify(data));
+  return data.access_token;
+}
+
+async function startUpload() {
+  if (!selectedFile) return;
+  const btn = document.getElementById('uploadBtn');
+  btn.disabled = true;
+
+  try {
+    setStatus('info', '⏳ جاري الاتصال بـ Firebase...');
+    setProgress(10);
+
+    const token = await getAccessToken();
+    setProgress(30);
+    setStatus('info', '✅ تم الاتصال... جاري إنشاء النشر...');
+
+    // Step 1: Create a new release version
+    const versionResp = await fetch(
+      `https://firebasehosting.googleapis.com/v1beta1/sites/${PROJECT_ID}/versions`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ config: { headers: [{ glob: '**', headers: { 'Cache-Control': 'no-cache' } }] } })
+      }
+    );
+    const versionData = await versionResp.json();
+    if (!versionData.name) throw new Error('فشل إنشاء النسخة: ' + JSON.stringify(versionData));
+    const versionId = versionData.name.split('/').pop();
+    setProgress(50);
+
+    // Step 2: Populate files
+    const fileContent = await selectedFile.text();
+    const encoder = new TextEncoder();
+    const fileBytes = encoder.encode(fileContent);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', fileBytes);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const fileHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    const populateResp = await fetch(
+      `https://firebasehosting.googleapis.com/v1beta1/sites/${PROJECT_ID}/versions/${versionId}:populateFiles`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ files: { '/index.html': fileHash } })
+      }
+    );
+    const populateData = await populateResp.json();
+    setProgress(65);
+
+    // Step 3: Upload file if needed
+    if (populateData.uploadRequiredHashes && populateData.uploadRequiredHashes.includes(fileHash)) {
+      const uploadUrl = populateData.uploadUrl + '/' + fileHash;
+      await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/octet-stream'
+        },
+        body: fileBytes
+      });
+    }
+    setProgress(80);
+    setStatus('info', '📤 تم رفع الملف... جاري النشر...');
+
+    // Step 4: Finalize version
+    await fetch(
+      `https://firebasehosting.googleapis.com/v1beta1/sites/${PROJECT_ID}/versions/${versionId}?updateMask=status`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: 'FINALIZED' })
+      }
+    );
+    setProgress(90);
+
+    // Step 5: Create release
+    await fetch(
+      `https://firebasehosting.googleapis.com/v1beta1/sites/${PROJECT_ID}/releases?versionName=sites/${PROJECT_ID}/versions/${versionId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
+      }
+    );
+    setProgress(100);
+
+    const siteUrl = `https://${PROJECT_ID}.web.app`;
+    setStatus('success', `🎉 تم النشر بنجاح!<br><a class="result-link" href="${siteUrl}" target="_blank">🔗 ${siteUrl}</a>`);
+
+  } catch (err) {
+    setStatus('error', '❌ حصل خطأ: ' + err.message);
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
